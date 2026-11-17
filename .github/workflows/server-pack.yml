@@ -1,0 +1,30 @@
+name: Pack serveur
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build server pack
+        shell: pwsh
+        run: ./install.ps1 -Pack modheim-serveur.zip -Source .
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view serveur *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create serveur --title "Pack serveur" --notes "Mods et réglages du serveur, sans BepInEx. Mis à jour automatiquement à chaque modification du repo."
+          }
+          gh release upload serveur modheim-serveur.zip --clobber

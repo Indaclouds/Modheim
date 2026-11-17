@@ -5,7 +5,8 @@ param(
     [switch]$Uninstall,
     [switch]$Yes,
     [string]$Source,
-    [string]$Repo = 'Indaclouds/modheim',
+    [string]$Pack,
+    [string]$Repo = 'Indaclouds/Modheim',
     [string]$Branch = 'main'
 )
 
@@ -279,6 +280,42 @@ function Disable-BepInExConsole([string]$GameDir) {
     [IO.File]::WriteAllLines($cfg, [string[]]$lines)
 }
 
+function Copy-SharedConfigs([string]$PackSource, [string]$GameDir) {
+    $configSource = Join-Path $PackSource 'config'
+    $configFiles = @(Get-ChildItem $configSource -Recurse -File -ErrorAction SilentlyContinue |
+                     Where-Object Name -ne '.gitkeep')
+    foreach ($file in $configFiles) {
+        $target = Join-Path $GameDir ('BepInEx\config' + $file.FullName.Substring($configSource.Length))
+        New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
+        Copy-Item $file.FullName $target -Force
+    }
+    return $configFiles.Count
+}
+
+function New-ServerPack([string]$OutFile) {
+    Write-Step 'Préparation du pack serveur (sans BepInEx)'
+    $packSource = Get-PackSource
+    $sections = Read-ModList (Join-Path $packSource 'modlist.txt')
+    $mods = @(Resolve-Dependencies (@(Get-Section $sections 'commun') + @(Get-Section $sections 'serveur')) |
+              Where-Object Id -ne $BepInExId)
+
+    $stage = Join-Path $env:TEMP 'modheim\pack'
+    if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+    New-Item -ItemType Directory -Force $stage | Out-Null
+    foreach ($mod in $mods) {
+        Write-ModLine $mod
+        Install-PackageZip (Get-PackageZip $mod) $mod $stage
+    }
+    $configCount = Copy-SharedConfigs $packSource $stage
+
+    $target = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutFile)
+    if (Test-Path $target) { Remove-Item $target -Force }
+    [IO.Compression.ZipFile]::CreateFromDirectory($stage, $target)
+    Write-Host ''
+    Write-Color "  Pack prêt : $target ($($mods.Count) mods, $configCount fichier(s) de réglages)" $Green
+    Write-Host ''
+}
+
 function Remove-PreviousMods([string]$GameDir) {
     $state = Join-Path $GameDir "BepInEx\$StateFileName"
     if (-not (Test-Path $state)) { return }
@@ -314,6 +351,8 @@ function Invoke-Main {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
 
     Show-Banner
+
+    if ($Pack) { New-ServerPack $Pack; return }
 
     $gameDir = Find-GameFolder $Server.IsPresent
     $what = if ($Server) { 'Serveur' } else { 'Valheim' }
@@ -362,17 +401,8 @@ function Invoke-Main {
 
     Disable-BepInExConsole $gameDir
 
-    $configSource = Join-Path $packSource 'config'
-    $configFiles = @(Get-ChildItem $configSource -Recurse -File -ErrorAction SilentlyContinue |
-                     Where-Object Name -ne '.gitkeep')
-    if ($configFiles.Count -gt 0) {
-        Write-Info "Réglages partagés appliqués ($($configFiles.Count) fichier(s))."
-        foreach ($file in $configFiles) {
-            $target = Join-Path $gameDir ('BepInEx\config' + $file.FullName.Substring($configSource.Length))
-            New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
-            Copy-Item $file.FullName $target -Force
-        }
-    }
+    $configCount = Copy-SharedConfigs $packSource $gameDir
+    if ($configCount -gt 0) { Write-Info "Réglages partagés appliqués ($configCount fichier(s))." }
 
     $final | Where-Object Id -ne $BepInExId | ForEach-Object Id |
         Set-Content (Join-Path $gameDir "BepInEx\$StateFileName") -Encoding ASCII

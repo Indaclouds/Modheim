@@ -21,7 +21,7 @@
 3. Coller cette commande et appuyer sur Entrée :
 
 ```powershell
-irm https://raw.githubusercontent.com/Indaclouds/modheim/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Indaclouds/Modheim/main/install.ps1 | iex
 ```
 
 4. Le script affiche la liste des mods et demande « Installer ces mods ? ». Répondre `o` (oui) ou `n` (non) ; Entrée seule = oui.
@@ -36,7 +36,7 @@ Quand la liste des mods change, il suffit de relancer la même commande : elle a
 Si Valheim n'est pas trouvé (installation hors Steam, par exemple), indiquer le dossier du jeu avec l'argument `-GamePath` :
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Indaclouds/modheim/main/install.ps1))) -GamePath "D:\Jeux\Valheim"
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Indaclouds/Modheim/main/install.ps1))) -GamePath "D:\Jeux\Valheim"
 ```
 
 ## Reset de tous les mods
@@ -44,5 +44,5 @@ Si Valheim n'est pas trouvé (installation hors Steam, par exemple), indiquer le
 Pour remettre le jeu sans les mods, utiliser l'argument `-Uninstall` :
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Indaclouds/modheim/main/install.ps1))) -Uninstall
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Indaclouds/Modheim/main/install.ps1))) -Uninstall
 ```
