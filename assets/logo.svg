@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200">
+  <rect width="640" height="200" rx="20" fill="#1c1d24"/>
+  <g transform="translate(32 18)">
+    <path d="M50 96 C22 92 6 62 12 22 C22 52 38 68 60 76 Z" fill="#fabe87"/>
+    <path d="M110 96 C138 92 154 62 148 22 C138 52 122 68 100 76 Z" fill="#fabe87"/>
+    <path d="M42 108 C42 64 58 44 80 44 C102 44 118 64 118 108 Z" fill="#fabe87"/>
+    <path d="M77 46 L83 46 L83 104 L77 104 Z" fill="#e39a5f"/>
+    <rect x="36" y="100" width="88" height="16" rx="4" fill="#e39a5f"/>
+    <circle cx="48" cy="108" r="2.6" fill="#fde7d2"/>
+    <circle cx="64" cy="108" r="2.6" fill="#fde7d2"/>
+    <circle cx="96" cy="108" r="2.6" fill="#fde7d2"/>
+    <circle cx="112" cy="108" r="2.6" fill="#fde7d2"/>
+    <path d="M74 112 L86 112 L83.5 146 L76.5 146 Z" fill="#fabe87"/>
+  </g>
+  <text x="212" y="110" fill="#a5e1aa" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="6">MODHEIM</text>
+  <text x="215" y="146" fill="#b9bcc8" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="20">Nos mods Valheim, en une seule commande.</text>
+</svg>
