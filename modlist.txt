@@ -5,6 +5,9 @@ Digitalroot-Heightmap_Unlimited_JvL-2.0.2
 MidnightMods-ValheimInfiniteFire-1.4.0
 RandyKnapp-EquipmentAndQuickSlots-3.2.1
 MathiasDecrock-PlanBuild-0.20.0
+MidnightMods-NetworkPerformanceSystem-1.18.2
+MidnightMods-ValheimCommunityPatch-0.46.0
+ontrigger-ValheimPerformanceOptimizations-2.2.0
 
 [joueurs]
 Advize-PlantEasily-2.3.1
