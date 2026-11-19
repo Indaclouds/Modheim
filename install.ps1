@@ -67,6 +67,20 @@ function Write-Info([string]$Text) { Write-Host "    $Text" -ForegroundColor Gra
 function Read-YesNo([string]$Question, [bool]$Default = $true) {
     if ($Yes) { return $Default }
     $hint = if ($Default) { '[O/n]' } else { '[o/N]' }
+    if (-not [Console]::IsInputRedirected) {
+        Write-Host "    $Question $hint " -NoNewline -ForegroundColor White
+        while ($true) {
+            $key = [Console]::ReadKey($true)
+            $answer = $null
+            if ($key.Key -eq 'Enter') { $answer = $Default }
+            elseif ("$($key.KeyChar)".ToLowerInvariant() -in 'o', 'y') { $answer = $true }
+            elseif ("$($key.KeyChar)".ToLowerInvariant() -eq 'n') { $answer = $false }
+            if ($null -ne $answer) {
+                Write-Host $(if ($answer) { 'oui' } else { 'non' }) -ForegroundColor Gray
+                return $answer
+            }
+        }
+    }
     while ($true) {
         Write-Host "    $Question $hint " -NoNewline -ForegroundColor White
         $answer = "$(Read-Host)".Trim().ToLowerInvariant()
@@ -93,11 +107,85 @@ function Write-ModLine($Mod, [string]$Status) {
     }
 }
 
+function Show-CheckList($Labels, $Notes, [bool[]]$Checked) {
+    $count = $Labels.Count
+    $state = [bool[]]$Checked.Clone()
+    if ($Yes) { return $state }
+
+    if ([Console]::IsInputRedirected) {
+        while ($true) {
+            for ($i = 0; $i -lt $count; $i++) {
+                $box = if ($state[$i]) { '[x]' } else { '[ ]' }
+                Write-Host ('    {0,2}. {1} {2}{3}' -f ($i + 1), $box, $Labels[$i], $Notes[$i])
+            }
+            Write-Host '    Numéros à cocher ou décocher (séparés par des espaces), Entrée pour valider : ' -NoNewline
+            $answer = "$(Read-Host)".Trim()
+            if (-not $answer) { return $state }
+            foreach ($token in $answer -split '[\s,;]+') {
+                $number = 0
+                if ([int]::TryParse($token, [ref]$number) -and $number -ge 1 -and $number -le $count) {
+                    $state[$number - 1] = -not $state[$number - 1]
+                }
+            }
+        }
+    }
+
+    Write-Host '    ↑/↓ se déplacer · Espace cocher · A tout cocher/décocher · Entrée valider · Échap annuler' -ForegroundColor DarkGray
+    for ($i = 0; $i -lt $count; $i++) { Write-Host '' }
+    $top = [Console]::CursorTop - $count
+    $width = [Math]::Max(20, [Console]::WindowWidth - 1)
+    $index = 0
+    try {
+        [Console]::CursorVisible = $false
+        while ($true) {
+            for ($i = 0; $i -lt $count; $i++) {
+                [Console]::SetCursorPosition(0, $top + $i)
+                Write-Host (' ' * $width) -NoNewline
+                [Console]::SetCursorPosition(0, $top + $i)
+                if ($i -eq $index) { Write-Color '  › ' $Orange -NoNewline } else { Write-Host '    ' -NoNewline }
+                if ($state[$i]) { Write-Color '[x] ' $Green -NoNewline } else { Write-Host '[ ] ' -NoNewline -ForegroundColor DarkGray }
+                $color = if ($i -eq $index) { 'White' } else { 'Gray' }
+                Write-Host $Labels[$i] -NoNewline -ForegroundColor $color
+                Write-Host $Notes[$i] -NoNewline -ForegroundColor DarkGray
+            }
+            $key = [Console]::ReadKey($true)
+            switch ($key.Key) {
+                'UpArrow'   { $index = ($index - 1 + $count) % $count }
+                'DownArrow' { $index = ($index + 1) % $count }
+                'Spacebar'  { $state[$index] = -not $state[$index] }
+                'A' {
+                    $value = $state -contains $false
+                    for ($i = 0; $i -lt $count; $i++) { $state[$i] = $value }
+                }
+                'Enter'  { return $state }
+                'Escape' { return $null }
+            }
+        }
+    } finally {
+        [Console]::SetCursorPosition(0, $top + $count)
+        [Console]::CursorVisible = $true
+        Write-Host ''
+    }
+}
+
 function Read-MenuChoice([string[]]$Options) {
     if ($Yes) { return 1 }
     for ($i = 0; $i -lt $Options.Count; $i++) {
         Write-Color "    $($i + 1). " $Orange -NoNewline
         Write-Host $Options[$i] -ForegroundColor White
+    }
+    if (-not [Console]::IsInputRedirected) {
+        Write-Host "    Ton choix [1-$($Options.Count)] (Entrée = 1) " -NoNewline -ForegroundColor White
+        while ($true) {
+            $key = [Console]::ReadKey($true)
+            $number = 0
+            if ($key.Key -eq 'Enter') { $number = 1 }
+            else { [void][int]::TryParse("$($key.KeyChar)", [ref]$number) }
+            if ($number -ge 1 -and $number -le $Options.Count) {
+                Write-Host $number -ForegroundColor Gray
+                return $number
+            }
+        }
     }
     while ($true) {
         Write-Host "    Ton choix [1-$($Options.Count)] (Entrée = 1) " -NoNewline -ForegroundColor White
@@ -386,15 +474,20 @@ function Remove-PreviousMods([string]$GameDir) {
 
 function Select-ModSet($Listed, $Installed, [string[]]$RequiredIds) {
     Write-Step 'Choix des mods'
-    Write-Info 'Réponds pour chaque mod. Ceux que tu refuses seront retirés s''ils sont installés.'
-    Write-Host ''
+    Write-Info 'Les mods décochés seront retirés s''ils sont installés.'
+    $mods = @($Listed | Where-Object Id -ne $BepInExId)
+    $labels = @($mods | ForEach-Object { "$(Get-DisplayName $_) $($_.Version)" })
+    $notes = @($mods | ForEach-Object {
+        $note = ''
+        $status = Get-ModStatus $_ $Installed
+        if ($status) { $note += "  ($status)" }
+        if ($RequiredIds -contains $_.Id) { $note += '  · requis pour le serveur' }
+        $note
+    })
+    $result = Show-CheckList $labels $notes ([bool[]]@($mods | ForEach-Object { $true }))
+    if ($null -eq $result) { return $null }
     $selected = @($Listed | Where-Object Id -eq $BepInExId)
-    foreach ($mod in @($Listed | Where-Object Id -ne $BepInExId)) {
-        Write-ModLine $mod (Get-ModStatus $mod $Installed)
-        if ($RequiredIds -contains $mod.Id) { Write-Host '      requis pour jouer sur le serveur' -ForegroundColor DarkGray }
-        if (Read-YesNo 'Installer ?') { $selected += $mod }
-        Write-Host ''
-    }
+    for ($i = 0; $i -lt $mods.Count; $i++) { if (@($result)[$i]) { $selected += $mods[$i] } }
 
     $selectedIds = @($selected | ForEach-Object Id)
     $final = @(Resolve-Dependencies $selected)
@@ -433,14 +526,17 @@ function Remove-ChosenMods([string]$GameDir, $Known) {
     }
 
     Write-Host ''
-    $toRemove = @()
-    foreach ($id in @($installed.Keys)) {
-        $name = (($id -split '-', 2)[-1]) -replace '_', ' '
-        Write-Color '    • ' $Orange -NoNewline
-        Write-Host $name -NoNewline -ForegroundColor White
-        Write-Host " $($installed[$id])" -ForegroundColor DarkGray
-        if (Read-YesNo 'Supprimer ?' $false) { $toRemove += $id }
+    Write-Info 'Coche les mods à supprimer.'
+    $ids = @($installed.Keys)
+    $labels = @($ids | ForEach-Object { (($_ -split '-', 2)[-1]) -replace '_', ' ' })
+    $notes = @($ids | ForEach-Object { if ($installed[$_]) { " $($installed[$_])" } else { '' } })
+    $result = Show-CheckList $labels $notes ([bool[]]@($ids | ForEach-Object { $false }))
+    if ($null -eq $result) {
+        Write-Info 'Annulé : rien n''a été modifié.'
+        return
     }
+    $toRemove = @()
+    for ($i = 0; $i -lt $ids.Count; $i++) { if (@($result)[$i]) { $toRemove += $ids[$i] } }
     if ($toRemove.Count -eq 0) {
         Write-Info 'Rien à supprimer : aucun mod n''a été modifié.'
         return
