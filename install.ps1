@@ -81,10 +81,31 @@ function Get-DisplayName($Mod) {
     return $Mod.Name -replace '_', ' '
 }
 
-function Write-ModLine($Mod) {
+function Write-ModLine($Mod, [string]$Status) {
     Write-Color '    • ' $Orange -NoNewline
     Write-Host (Get-DisplayName $Mod) -NoNewline -ForegroundColor White
-    Write-Host " $($Mod.Version)" -ForegroundColor DarkGray
+    Write-Host " $($Mod.Version)" -NoNewline -ForegroundColor DarkGray
+    switch -Wildcard ($Status) {
+        ''            { Write-Host '' }
+        'nouveau'     { Write-Color '  (nouveau)' $Green }
+        'mise à jour*' { Write-Color "  ($Status)" $Orange }
+        default       { Write-Host "  ($Status)" -ForegroundColor DarkGray }
+    }
+}
+
+function Read-MenuChoice([string[]]$Options) {
+    if ($Yes) { return 1 }
+    for ($i = 0; $i -lt $Options.Count; $i++) {
+        Write-Color "    $($i + 1). " $Orange -NoNewline
+        Write-Host $Options[$i] -ForegroundColor White
+    }
+    while ($true) {
+        Write-Host "    Ton choix [1-$($Options.Count)] (Entrée = 1) " -NoNewline -ForegroundColor White
+        $answer = "$(Read-Host)".Trim()
+        if (-not $answer) { return 1 }
+        $number = 0
+        if ([int]::TryParse($answer, [ref]$number) -and $number -ge 1 -and $number -le $Options.Count) { return $number }
+    }
 }
 
 function Write-ProgressRow([int]$Done, [int]$Total, [string]$Label, [switch]$Finished) {
@@ -178,15 +199,26 @@ function Get-Section($Sections, [string]$Name) {
     return @()
 }
 
+function Invoke-ThunderstoreRequest([string]$Uri, [string]$OutFile, [string]$What) {
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        try {
+            if ($OutFile) { return Invoke-WebRequest $Uri -OutFile $OutFile -UseBasicParsing }
+            return Invoke-WebRequest $Uri -UseBasicParsing
+        } catch {
+            $status = 0
+            if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+            if ($status -eq 404) { throw "$What introuvable sur Thunderstore (vérifie le nom et la version dans modlist.txt)." }
+            if ($attempt -eq 4) { throw "Thunderstore ne répond pas pour $What. Réessaie dans une minute." }
+            Start-Sleep -Seconds (5 * $attempt)
+        }
+    }
+}
+
 function Get-PackageInfo($Mod) {
     $key = "$($Mod.Id)-$($Mod.Version)"
     if (-not $script:PackageInfo.ContainsKey($key)) {
-        try {
-            $response = Invoke-WebRequest "$ApiBase/$($Mod.Namespace)/$($Mod.Name)/$($Mod.Version)/" -UseBasicParsing
-            $script:PackageInfo[$key] = [Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray()) | ConvertFrom-Json
-        } catch {
-            throw "$($Mod.Id) $($Mod.Version) introuvable sur Thunderstore (vérifie le nom et la version dans modlist.txt)."
-        }
+        $response = Invoke-ThunderstoreRequest "$ApiBase/$($Mod.Namespace)/$($Mod.Name)/$($Mod.Version)/" $null "$($Mod.Id) $($Mod.Version)"
+        $script:PackageInfo[$key] = [Text.Encoding]::UTF8.GetString($response.RawContentStream.ToArray()) | ConvertFrom-Json
     }
     return $script:PackageInfo[$key]
 }
@@ -223,7 +255,7 @@ function Get-PackageZip($Mod) {
     $zip = Join-Path $cache "$($Mod.Id)-$($Mod.Version).zip"
     if (-not (Test-Path $zip)) {
         $partial = "$zip.part"
-        Invoke-WebRequest "https://thunderstore.io/package/download/$($Mod.Namespace)/$($Mod.Name)/$($Mod.Version)/" -OutFile $partial -UseBasicParsing
+        [void](Invoke-ThunderstoreRequest "https://thunderstore.io/package/download/$($Mod.Namespace)/$($Mod.Name)/$($Mod.Version)/" $partial "$($Mod.Id) $($Mod.Version)")
         Move-Item $partial $zip -Force
     }
     return $zip
@@ -316,16 +348,126 @@ function New-ServerPack([string]$OutFile) {
     Write-Host ''
 }
 
-function Remove-PreviousMods([string]$GameDir) {
+function Get-InstalledMods([string]$GameDir) {
+    $installed = [ordered]@{}
     $state = Join-Path $GameDir "BepInEx\$StateFileName"
-    if (-not (Test-Path $state)) { return }
-    foreach ($id in Get-Content $state) {
-        if (-not $id.Trim()) { continue }
-        foreach ($kind in 'plugins', 'patchers') {
-            $folder = Join-Path $GameDir "BepInEx\$kind\$($id.Trim())"
-            if (Test-Path $folder) { Remove-Item $folder -Recurse -Force }
+    if (-not (Test-Path $state)) { return $installed }
+    foreach ($line in Get-Content $state) {
+        $parts = $line.Trim() -split '\s+'
+        if (-not $parts[0]) { continue }
+        $installed[$parts[0]] = if ($parts.Count -gt 1) { $parts[1] } else { '' }
+    }
+    return $installed
+}
+
+function Save-InstalledMods([string]$GameDir, $Installed) {
+    $lines = foreach ($id in $Installed.Keys) { "$id $($Installed[$id])".Trim() }
+    Set-Content (Join-Path $GameDir "BepInEx\$StateFileName") ([string[]]$lines) -Encoding ASCII
+}
+
+function Get-ModStatus($Mod, $Installed) {
+    if ($Mod.Id -eq $BepInExId) { return '' }
+    if (-not $Installed.Contains($Mod.Id)) { return 'nouveau' }
+    $current = $Installed[$Mod.Id]
+    if ($current -and $current -ne $Mod.Version) { return "mise à jour $current → $($Mod.Version)" }
+    return 'installé'
+}
+
+function Remove-ModFolders([string]$GameDir, [string]$Id) {
+    foreach ($kind in 'plugins', 'patchers') {
+        $folder = Join-Path $GameDir "BepInEx\$kind\$Id"
+        if (Test-Path $folder) { Remove-Item $folder -Recurse -Force }
+    }
+}
+
+function Remove-PreviousMods([string]$GameDir) {
+    foreach ($id in (Get-InstalledMods $GameDir).Keys) { Remove-ModFolders $GameDir $id }
+}
+
+function Select-ModSet($Listed, $Installed, [string[]]$RequiredIds) {
+    Write-Step 'Choix des mods'
+    Write-Info 'Réponds pour chaque mod. Ceux que tu refuses seront retirés s''ils sont installés.'
+    Write-Host ''
+    $selected = @($Listed | Where-Object Id -eq $BepInExId)
+    foreach ($mod in @($Listed | Where-Object Id -ne $BepInExId)) {
+        Write-ModLine $mod (Get-ModStatus $mod $Installed)
+        if ($RequiredIds -contains $mod.Id) { Write-Host '      requis pour jouer sur le serveur' -ForegroundColor DarkGray }
+        if (Read-YesNo 'Installer ?') { $selected += $mod }
+        Write-Host ''
+    }
+
+    $selectedIds = @($selected | ForEach-Object Id)
+    $final = @(Resolve-Dependencies $selected)
+    $extra = @($final | Where-Object { $selectedIds -notcontains $_.Id })
+    if ($extra.Count -gt 0) {
+        foreach ($dep in $extra) {
+            $listedDep = $Listed | Where-Object Id -eq $dep.Id | Select-Object -First 1
+            if ($listedDep) { $selected += $listedDep } else { $selected += $dep }
+            Write-Info "$(Get-DisplayName $dep) ajouté : un mod choisi en a besoin."
+        }
+        $final = @(Resolve-Dependencies $selected)
+    }
+
+    $finalIds = @($final | ForEach-Object Id)
+    $missing = @($Listed | Where-Object { $RequiredIds -contains $_.Id -and $finalIds -notcontains $_.Id })
+    if ($missing.Count -gt 0) {
+        Write-Host ''
+        Write-Color '    Attention : ces mods sont requis pour jouer sur le serveur.' $Orange
+        Write-Color '    Sans eux, la connexion peut être refusée ou le jeu incohérent :' $Orange
+        foreach ($mod in $missing) { Write-Host "      - $(Get-DisplayName $mod)" -ForegroundColor White }
+        if (-not (Read-YesNo 'Continuer quand même ?' $false)) { return $null }
+    }
+    return $final
+}
+
+function Remove-ChosenMods([string]$GameDir, $Known) {
+    Write-Step 'Suppression de mods'
+    $installed = Get-InstalledMods $GameDir
+    if ($installed.Count -eq 0) {
+        Write-Info 'Aucun mod Modheim n''est installé ici.'
+        return
+    }
+    if (Read-YesNo 'Tout retirer (BepInEx compris) pour revenir au jeu d''origine ?' $false) {
+        Remove-Everything $GameDir
+        return
+    }
+
+    Write-Host ''
+    $toRemove = @()
+    foreach ($id in @($installed.Keys)) {
+        $name = (($id -split '-', 2)[-1]) -replace '_', ' '
+        Write-Color '    • ' $Orange -NoNewline
+        Write-Host $name -NoNewline -ForegroundColor White
+        Write-Host " $($installed[$id])" -ForegroundColor DarkGray
+        if (Read-YesNo 'Supprimer ?' $false) { $toRemove += $id }
+    }
+    if ($toRemove.Count -eq 0) {
+        Write-Info 'Rien à supprimer : aucun mod n''a été modifié.'
+        return
+    }
+
+    foreach ($id in @($installed.Keys)) {
+        if ($toRemove -contains $id) { continue }
+        $mod = $Known | Where-Object Id -eq $id | Select-Object -First 1
+        if (-not $mod) { continue }
+        foreach ($depText in (Get-PackageInfo $mod).dependencies) {
+            $depId = (ConvertTo-PackageRef $depText).Id
+            if ($toRemove -contains $depId) {
+                $toRemove = @($toRemove | Where-Object { $_ -ne $depId })
+                Write-Info "$((($depId -split '-', 2)[-1]) -replace '_', ' ') est gardé : $(Get-DisplayName $mod) en a besoin."
+            }
         }
     }
+
+    foreach ($id in $toRemove) {
+        Remove-ModFolders $GameDir $id
+        $installed.Remove($id)
+    }
+    Save-InstalledMods $GameDir $installed
+    Write-Host ''
+    Write-Color "  Terminé : $($toRemove.Count) mod(s) supprimé(s)." $Green
+    Write-Host '  Pour les remettre, relance la même commande.' -ForegroundColor Gray
+    Write-Host ''
 }
 
 function Uninstall-Modheim([string]$GameDir) {
@@ -334,6 +476,10 @@ function Uninstall-Modheim([string]$GameDir) {
         Write-Info 'Annulé : rien n''a été modifié.'
         return
     }
+    Remove-Everything $GameDir
+}
+
+function Remove-Everything([string]$GameDir) {
     $loaderFiles = 'winhttp.dll', 'doorstop_config.ini', '.doorstop_version', 'changelog.txt', 'doorstop_libs',
                    'start_game_bepinex.sh', 'start_server_bepinex.sh', 'BepInEx'
     foreach ($name in $loaderFiles) {
@@ -375,17 +521,46 @@ function Invoke-Main {
     if (-not ($final | Where-Object Id -eq $BepInExId)) { throw "$BepInExId manque dans modlist.txt." }
     Write-Info 'Liste à jour, vérifiée sur Thunderstore.'
 
+    $installed = Get-InstalledMods $gameDir
     Write-Step 'La liste des mods actuellement :'
-    foreach ($mod in $final) { Write-ModLine $mod }
+    foreach ($mod in $final) { Write-ModLine $mod (Get-ModStatus $mod $installed) }
     Write-Host ''
     Write-Host "  Pour plus d'infos, voir le README du repo : https://github.com/$Repo" -ForegroundColor Gray
-    Write-Host ''
 
-    if (-not (Read-YesNo 'Installer ces mods ?')) {
+    Write-Step 'Que veux-tu faire ?'
+    $choice = Read-MenuChoice @(
+        'Tout installer / mettre à jour (recommandé)',
+        'Choisir les mods à installer',
+        'Supprimer des mods',
+        'Quitter sans rien changer'
+    )
+    if ($choice -eq 3) { Remove-ChosenMods $gameDir $final; return }
+    if ($choice -eq 4) {
         Write-Host ''
-        Write-Host '  Installation annulée : rien n''a été modifié.' -ForegroundColor Yellow
+        Write-Host '  Rien n''a été modifié.' -ForegroundColor Yellow
         Write-Host ''
         return
+    }
+    if ($choice -eq 2) {
+        $requiredIds = @(@(Get-Section $sections 'commun') + @(Get-Section $sections 'serveur') | ForEach-Object Id)
+        $final = Select-ModSet $listed $installed $requiredIds
+        if (-not $final) {
+            Write-Host ''
+            Write-Host '  Installation annulée : rien n''a été modifié.' -ForegroundColor Yellow
+            Write-Host ''
+            return
+        }
+        $final = @($final)
+        $removed = @($installed.Keys | Where-Object { @($final | ForEach-Object Id) -notcontains $_ })
+        Write-Step 'Récapitulatif'
+        Write-Info "$($final.Count) mods à installer ou mettre à jour."
+        if ($removed.Count -gt 0) { Write-Info "$($removed.Count) mod(s) retiré(s) : $((@($removed | ForEach-Object { (($_ -split '-', 2)[-1]) -replace '_', ' ' })) -join ', ')" }
+        if (-not (Read-YesNo 'On y va ?')) {
+            Write-Host ''
+            Write-Host '  Installation annulée : rien n''a été modifié.' -ForegroundColor Yellow
+            Write-Host ''
+            return
+        }
     }
 
     Write-Step 'Installation'
@@ -404,8 +579,9 @@ function Invoke-Main {
     $configCount = Copy-SharedConfigs $packSource $gameDir
     if ($configCount -gt 0) { Write-Info "Réglages partagés appliqués ($configCount fichier(s))." }
 
-    $final | Where-Object Id -ne $BepInExId | ForEach-Object Id |
-        Set-Content (Join-Path $gameDir "BepInEx\$StateFileName") -Encoding ASCII
+    $newState = [ordered]@{}
+    foreach ($mod in @($final | Where-Object Id -ne $BepInExId)) { $newState[$mod.Id] = $mod.Version }
+    Save-InstalledMods $gameDir $newState
 
     Write-Host ''
     Write-Color "  Terminé : $count mods installés." $Green

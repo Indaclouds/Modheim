@@ -13,6 +13,8 @@
 | [NetworkPerformanceSystem](https://thunderstore.io/c/valheim/p/MidnightMods/NetworkPerformanceSystem/) | Réseau optimisé, surtout quand un joueur a un ping élevé | Serveur + Client | 1.18.2 |
 | [ValheimCommunityPatch](https://thunderstore.io/c/valheim/p/MidnightMods/ValheimCommunityPatch/) | Corrige des bugs et lenteurs de Valheim, sans changer le gameplay | Serveur + Client | 0.46.0 |
 | [ValheimPerformanceOptimizations](https://thunderstore.io/c/valheim/p/ontrigger/ValheimPerformanceOptimizations/) | Plus de FPS, surtout dans les grosses bases | Serveur + Client | 2.2.0 |
+| [Server Devcommands](https://thunderstore.io/c/valheim/p/JereKuusela/Server_devcommands/) | Commandes admin sur le serveur (debugmode, god, fly…), réservées aux admins | Serveur + Client | 1.116.0 |
+| [MultiUserChest](https://thunderstore.io/c/valheim/p/MSchmoecker/MultiUserChest/) | Plusieurs joueurs peuvent ouvrir le même coffre en même temps | Serveur + Client | 0.6.2 |
 | [PlantEasily](https://thunderstore.io/c/valheim/p/Advize/PlantEasily/) | Mod QoL pour planter et récolter | Client | 2.3.1 |
 | [Valheim Clock](https://thunderstore.io/c/valheim/p/orfox/ValheimClock/) | Horloge sous la minimap | Client | 1.5.3 |
 | [RememberServerPassword](https://thunderstore.io/c/valheim/p/MagiCorp/RememberServerPassword/) | Retient le mot de passe du serveur + bouton « Quick Connect » | Client | 1.2.4 |
@@ -27,7 +29,11 @@
 irm https://raw.githubusercontent.com/Indaclouds/Modheim/main/install.ps1 | iex
 ```
 
-4. Le script affiche la liste des mods et demande « Installer ces mods ? ». Répondre `o` (oui) ou `n` (non) ; Entrée seule = oui.
+4. Le script affiche la liste des mods (nouveaux, mises à jour, déjà installés) et propose :
+   1. Tout installer / mettre à jour (recommandé, Entrée seule)
+   2. Choisir les mods à installer (les mods refusés sont retirés)
+   3. Supprimer des mods (tout, ou seulement certains)
+   4. Quitter sans rien changer
 5. Lancer Valheim depuis Steam, comme d'habitude.
 
 ### Mettre à jour
