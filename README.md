@@ -15,6 +15,7 @@
 | [ValheimPerformanceOptimizations](https://thunderstore.io/c/valheim/p/ontrigger/ValheimPerformanceOptimizations/) | Plus de FPS, surtout dans les grosses bases | Client | 2.2.0 |
 | [Server Devcommands](https://thunderstore.io/c/valheim/p/JereKuusela/Server_devcommands/) | Commandes admin sur le serveur (debugmode, god, fly…), réservées aux admins | Serveur + Client | 1.116.0 |
 | [MultiUserChest](https://thunderstore.io/c/valheim/p/MSchmoecker/MultiUserChest/) | Plusieurs joueurs peuvent ouvrir le même coffre en même temps | Serveur + Client | 0.6.2 |
+| [NoRainDamage](https://thunderstore.io/c/valheim/p/JoelOliMclean/NoRainDamage/) | La pluie n'abîme plus les constructions (plus d'aspect usé/vert) | Serveur + Client | 1.3.2 |
 | [PlantEasily](https://thunderstore.io/c/valheim/p/Advize/PlantEasily/) | Mod QoL pour planter et récolter | Client | 2.3.1 |
 | [Valheim Clock](https://thunderstore.io/c/valheim/p/orfox/ValheimClock/) | Horloge sous la minimap | Client | 1.5.3 |
 | [RememberServerPassword](https://thunderstore.io/c/valheim/p/MagiCorp/RememberServerPassword/) | Retient le mot de passe du serveur + bouton « Quick Connect » | Client | 1.2.4 |
