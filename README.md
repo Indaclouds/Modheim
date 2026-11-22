@@ -12,7 +12,7 @@
 | [PlanBuild](https://thunderstore.io/c/valheim/p/MathiasDecrock/PlanBuild/) | Copier-coller des constructions (plans à remplir avec les matériaux) | Serveur + Client | 0.20.0 |
 | [NetworkPerformanceSystem](https://thunderstore.io/c/valheim/p/MidnightMods/NetworkPerformanceSystem/) | Réseau optimisé, surtout quand un joueur a un ping élevé | Serveur + Client | 1.18.2 |
 | [ValheimCommunityPatch](https://thunderstore.io/c/valheim/p/MidnightMods/ValheimCommunityPatch/) | Corrige des bugs et lenteurs de Valheim, sans changer le gameplay | Serveur + Client | 0.46.0 |
-| [ValheimPerformanceOptimizations](https://thunderstore.io/c/valheim/p/ontrigger/ValheimPerformanceOptimizations/) | Plus de FPS, surtout dans les grosses bases | Serveur + Client | 2.2.0 |
+| [ValheimPerformanceOptimizations](https://thunderstore.io/c/valheim/p/ontrigger/ValheimPerformanceOptimizations/) | Plus de FPS, surtout dans les grosses bases | Client | 2.2.0 |
 | [Server Devcommands](https://thunderstore.io/c/valheim/p/JereKuusela/Server_devcommands/) | Commandes admin sur le serveur (debugmode, god, fly…), réservées aux admins | Serveur + Client | 1.116.0 |
 | [MultiUserChest](https://thunderstore.io/c/valheim/p/MSchmoecker/MultiUserChest/) | Plusieurs joueurs peuvent ouvrir le même coffre en même temps | Serveur + Client | 0.6.2 |
 | [PlantEasily](https://thunderstore.io/c/valheim/p/Advize/PlantEasily/) | Mod QoL pour planter et récolter | Client | 2.3.1 |
