@@ -31,10 +31,10 @@ irm https://raw.githubusercontent.com/Indaclouds/Modheim/main/install.ps1 | iex
 ```
 
 4. Le script affiche la liste des mods (nouveaux, mises à jour, déjà installés) et propose :
-   - **1** : Tout installer / mettre à jour (recommandé, Entrée seule)
-   - **2** : Choisir les mods à installer (les mods décochés sont retirés)
-   - **3** : Supprimer des mods (tout, ou seulement certains)
-   - **4** : Quitter sans rien changer
+   - **I.** Tout installer / mettre à jour (recommandé, Entrée seule)
+   - **II.** Choisir les mods à installer (les mods décochés sont retirés)
+   - **III.** Supprimer des mods (tout, ou seulement certains)
+   - **IV.** Quitter sans rien changer
 5. Lancer Valheim depuis Steam, comme d'habitude.
 
 ### Mettre à jour
